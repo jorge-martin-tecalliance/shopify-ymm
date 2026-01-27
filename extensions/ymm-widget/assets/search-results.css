@@ -1,3 +1,8 @@
+.shopify-app-block {
+  width: 100%;
+  max-width: 100%;
+}
+
 #search-results {
   width: 100%;
   box-sizing: border-box;
@@ -17,6 +22,10 @@
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.hidden {
+  display: none;
 }
 
 .search-header {
@@ -49,13 +58,14 @@
 }
 
 .part-image-wrapper {
-  height: auto;
   border-radius: 4px;
   width: 15%;
 }
 
 .part-image {
-  height: auto;
+  width: 100%;
+  max-height: 160px;
+  object-fit: contain;
 }
 
 .part-content-wrapper {
@@ -70,9 +80,18 @@
   width: 70%;
 }
 
-.part-title {
+.part-header-wrapper {
+  display: flex;
+  gap: 20px;
+  justify-content: flex-start;
+  align-items: center;
   border-bottom: #dddddd solid 1px;
   padding: 0px 0px 10px 0px;
+}
+
+.part-header-title {
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .part-details {
@@ -85,10 +104,10 @@
 }
 
 .part-details-column {
-  width: 200px;
+  width: 100%;
 }
 
-.part-price {
+.part-price-column {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -187,6 +206,65 @@
   margin-bottom: 20px;
 }
 
+.text-limit {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
+  max-height: 6em;
+}
+
+.text-limit.expanded {
+  -webkit-line-clamp: unset;
+  max-height: none;
+}
+
+.read-more-btn {
+  color: #1c1a33;
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 5px;
+  display: inline-block;
+}
+
+.read-more-btn:hover {
+  color: #2d2a54;
+}
+
+/* Tablet styles (769px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  
+  .part-content-wrapper {
+    justify-content: space-between;
+  }
+
+  .part-image-wrapper {
+    width: 25%;
+  }
+
+  .part-info {
+    width: 50%;
+  }
+
+  .part-header-wrapper {
+    flex-direction: column;
+    align-items: start;
+    gap: 0;
+  }
+
+  .part-details {
+    flex-direction: column;
+  }
+
+  .part-price-column {
+    width: 25%;
+    justify-content: flex-end;
+  }
+
+}
+
+/* Mobile styles (up to 768px) */
 @media (max-width: 768px) {
 
   .search-container {
@@ -205,6 +283,10 @@
     width: 100%;
   }
 
+  .part-header-wrapper {
+    flex-direction: column;
+  }
+
   .part-info {
     width: 100%;
   }
@@ -213,7 +295,7 @@
     flex-direction: column;
   }
 
-  .part-price {
+  .part-price-column {
     width: 100%;
   }
 

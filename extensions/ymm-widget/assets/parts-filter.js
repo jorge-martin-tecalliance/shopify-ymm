@@ -41,6 +41,18 @@ function createFilterCheckboxes(containerId, items, filterType) {
 
     container.innerHTML = '';
 
+    // Show message if no items available
+    if (items.length === 0) {
+        const noItemsMsg = document.createElement('p');
+        noItemsMsg.className = 'no-filters-message';
+        noItemsMsg.textContent = 'No options available';
+        noItemsMsg.style.color = '#999';
+        noItemsMsg.style.fontStyle = 'italic';
+        noItemsMsg.style.padding = '10px 0';
+        container.appendChild(noItemsMsg);
+        return;
+    }
+
     items.sort().forEach(item => {
         const label = document.createElement('label');
         label.className = 'filter-checkbox';

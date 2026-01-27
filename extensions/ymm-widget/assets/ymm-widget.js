@@ -5,8 +5,10 @@ document.getElementById('model-select').disabled = true;
 document.getElementById('search-button').disabled = true;
 
 // Endpoint URL and Key
-const url = 'https://webservice.opticatonline.com/autocare/v1/services/Catalog.jsonEndpoint';
-const apiKey = '2BeBXg6FtqihLXMGmWdc2DQYRLozzH6MQ3owHfWNhBz4Qb47WR3y';
+const url = window.OPTICAT_CONFIG?.apiUrl;
+const apiKey = window.OPTICAT_CONFIG?.apiKey;
+const resultsPageUrl = window.YMM_CONFIG?.resultsPageUrl || window.searchResultsPageUrl;
+
 
 if (!apiKey) {
   console.error(
@@ -440,12 +442,20 @@ async function searchParts() {
     }));
     
     // Always look for results block on current page first
+    // Check if results block exists on current page
     const resultsBlock = document.getElementById('search-results');
     if (resultsBlock) {
         console.log("Found results block on same page, scrolling to it");
         resultsBlock.scrollIntoView({ behavior: 'smooth' });
     } else {
-        console.log("No results block found on this page");
-        alert('Please add the "Parts Search Results" block to this page to see search results.');
+        // Results block not on this page - check if redirect URL is configured
+        const resultsPageUrl = window.searchResultsPageUrl;
+        if (resultsPageUrl) {
+            console.log("Redirecting to results page:", resultsPageUrl);
+            window.location.href = resultsPageUrl;
+        } else {
+            console.log("No results block found and no redirect URL configured");
+            alert('Please add the "Parts Search Results" block to this page or configure a results page URL.');
+        }
     }
 }

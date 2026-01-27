@@ -21,8 +21,8 @@ if (typeof window.cartEventDebugger === 'undefined') {
 console.log("Search results script loaded");
 
 // Vehicle Parts Search JavaScript
-const API_URL = 'https://webservice.opticatonline.com/autocare/v1/services/Catalog.jsonEndpoint';
-const API_KEY = '2BeBXg6FtqihLXMGmWdc2DQYRLozzH6MQ3owHfWNhBz4Qb47WR3y';
+const API_URL = window.OPTICAT_CONFIG?.apiUrl;
+const API_KEY = window.OPTICAT_CONFIG?.apiKey;
 
 let allParts = [];
 let filteredParts = [];
@@ -45,29 +45,56 @@ async function fetchShopifyProducts() {
         const criterionProducts = [];
         
         data.products.forEach(product => {
-            // Find the criterion option position
-            const criterionOption = product.options.find(opt => 
-                opt.name.toLowerCase() === 'occatalog'
-            );
-            
-            if (criterionOption) {
-                // Get all criterion values for this product
-                const criterionValues = criterionOption.values;
-                
-                // Assuming first value is brand code, second is part number
-                if (criterionValues.length >= 2) {
 
-                    criterionProducts.push({
-                        brandCode: criterionValues[0],
-                        partNumber: criterionValues[1],
-                        productId: product.id,
-                        productTitle: product.title,
-                        productHandle: product.handle,
-                        productPrice: product.variants[0].price,
-                        variantId: product.variants[0].id
-                    });
-                }
+            // Look for tags in the format: brandCode-partNumber
+            if (product.tags && product.tags.length > 0) {
+                product.tags.forEach(tag => {
+                    // Check if tag contains a hyphen (potential brandCode-partNumber format)
+                    if (tag.includes('_')) {
+                        const parts = tag.split('_');
+                        // Assuming format is exactly: brandCode-partNumber
+                        if (parts.length >= 2) {
+                            const brandCode = parts[0];
+                            const partNumber = parts.slice(1).join('_'); // In case part number has hyphens
+                            
+                            criterionProducts.push({
+                                brandCode: brandCode,
+                                partNumber: partNumber,
+                                productId: product.id,
+                                productTitle: product.title,
+                                productHandle: product.handle,
+                                productPrice: product.variants[0].price,
+                                variantId: product.variants[0].id
+                            });
+                        }
+                    }
+                });
             }
+
+            // Find the criterion option position
+        //     const criterionOption = product.options.find(opt => 
+        //         opt.name.toLowerCase() === 'occatalog'
+        //     );
+            
+        //     if (criterionOption) {
+        //         // Get all criterion values for this product
+        //         const criterionValues = criterionOption.values;
+                
+        //         // Assuming first value is brand code, second is part number
+        //         if (criterionValues.length >= 2) {
+
+        //             criterionProducts.push({
+        //                 brandCode: criterionValues[0],
+        //                 partNumber: criterionValues[1],
+        //                 productId: product.id,
+        //                 productTitle: product.title,
+        //                 productHandle: product.handle,
+        //                 productPrice: product.variants[0].price,
+        //                 variantId: product.variants[0].id
+        //             });
+        //         }
+        //     }
+
         });
 
         console.log('Extracted criterion products:', criterionProducts);
@@ -280,39 +307,84 @@ function displayResults() {
         
         const mfrLabel = fitments[0].acesApp.mfrLabel;
         const position = fitments[0].acesApp.attributes[0].attributeValueName;
+        const application = null;
+        const notes = fitments[0].acesApp.notes[0].value;
+
+        // Generate brand logo
+        let brandLogo = '';
+        if (piesItem.brandAdditionalInfo?.logoImageURL100x40) {
+            brandLogo = `<img src="${piesItem.brandAdditionalInfo.logoImageURL100x40}" alt="${piesItem.brandName}">`;
+        } else {
+            brandLogo = `<img src="https://placehold.co/100x40?text=No+Image" alt="${piesItem.brandName}">`;
+        }
+
+        // Generate Primary part image
+        let partThumbnail = '';
+        if (primaryImage?.imageURL200) {
+            partThumbnail = `<img class="part-image" src="${primaryImage.imageURL200}" alt="${piesItem.brandName}">`;
+        } else {
+            partThumbnail = `<img class="part-image" src="https://placehold.co/200x200?text=No+Image" alt="${piesItem.brandName}">`;
+        }
+
         // <div class="part-item-card" style="cursor: pointer" onclick="window.location.href='/products/${shopifyItem.productHandle}'">
         return `
             <div class="part-item-card">
                 <div class="part-content-wrapper">
                     <div class="part-image-wrapper" style="cursor: pointer" onclick="window.location.href='/products/${shopifyItem.productHandle}'">
-                        ${primaryImage ? `<img src="${primaryImage.imageURL200}" alt="${piesItem.partNumber}" class="part-image">` : ''}
+                        ${partThumbnail}
                     </div>
 
-                    <div class="part-info" style="cursor: pointer" onclick="window.location.href='/products/${shopifyItem.productHandle}'">
-                        <div class="part-title">${shopifyItem.productTitle}</div>
+                    <div class="part-info">
+                        <div class="part-header-wrapper" style="cursor: pointer" onclick="window.location.href='/products/${shopifyItem.productHandle}'">
+                            <div>${brandLogo}</div>
+                            <div class="part-header-title">${shopifyItem.productTitle}</div>
+                        </div>
+
                         <div class="part-details">
                             <div class="part-details-column">
-                                <div><strong>Part Type:</strong> ${piesItem.partTypeName}</div>
-                                <div><strong>Brand Name:</strong> ${piesItem.brandName}</div>
-                                <div><strong>Brand Code:</strong> ${piesItem.brandCode}</div>
-                                <div><strong>Part Number:</strong> ${piesItem.partNumber}</div>
+                                <div>
+                                    <strong>Part Number:</strong>
+                                    <span>${piesItem.partNumber}</span> 
+                                </div>
+                                <div>
+                                    <strong>Part Type:</strong>
+                                    <span>${piesItem.partTypeName}</span>
+                                </div>
+                                <div>
+                                    <strong>MFR Label:</strong>
+                                    <span>${mfrLabel}</span>
+                                </div>
+                                <div>
+                                    <strong>Position:</strong>
+                                    <span>${position}</span>
+                                </div>
                             </div>
                             <div class="part-details-column">
-                                <div><strong>Category:</strong> ${piesItem.categoryName}</div>
-                                <div><strong>Sub Category:</strong> ${piesItem.subCategoryName}</div>
-                                <div><strong>Part Type:</strong> ${piesItem.partTypeName}</div>
-                                <div><strong>Description:</strong> ${description}</div>
+                                <div>
+                                    <strong>Application:</strong>
+                                    <span class="text-limit" id="app-${piesItem.partNumber}">
+                                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut neque libero, sagittis et sodales quis, dignissim eget nunc. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Quisque nec placerat enim, eget lacinia justo. Praesent non nisi cursus, vestibulum urna sed, suscipit velit. Nulla rutrum mollis tellus, sed placerat lacus. Suspendisse elementum imperdiet leo eget tincidunt. Nullam et massa lorem.
+                                    </span>
+                                    <span class="read-more-btn" onclick="toggleText('app-${piesItem.partNumber}', this)" style="display: none;">
+                                        Read more
+                                    </span>
+                                </div>
                             </div>
                             <div class="part-details-column">
-                                <div><strong>MFR Label:</strong> ${mfrLabel}</div>
-                                <div><strong>Position:</strong> ${position}</div>
-                                <div><strong>Application:</strong></div>
-                                <div><strong>Notes:</strong></div>
+                                <div>
+                                    <strong>Notes:</strong>
+                                    <span class="text-limit" id="app-${piesItem.partNumber}">
+                                        ${notes}
+                                    </span>
+                                    <span class="read-more-btn" onclick="toggleText('app-${piesItem.partNumber}', this)" style="display: none;">
+                                        Read more
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="part-price">
+                    <div class="part-price-column">
                         <div class="part-price-value">$${shopifyItem.productPrice}</div>
                         <div class="button-add-to-cart" onclick="addToCart(${shopifyItem.variantId}, 1, this)">Add to Cart</div>
                     </div>
@@ -321,6 +393,8 @@ function displayResults() {
             </div>
         `;
     }).join('');
+
+    setTimeout(checkTextHeight, 100);
 }
 
 // Function to refresh cart sections (drawer, notification, etc.)
@@ -556,14 +630,22 @@ async function addToCart(variantId, quantity = 1, buttonElement) {
 
 // Initialize the page
 async function initializePage() {
-    // Only run if we're on the search results page
     if (!document.getElementById('search-results')) {
         return;
     }
 
     const vehicleData = getSearchData();
-
-    await performSearch(vehicleData);
+    
+    // Only perform search if we have vehicle data
+    if (vehicleData) {
+        await performSearch(vehicleData);
+    } else {
+        // Hide loading message if no search data available
+        const loadingElement = document.getElementById('loading-message');
+        if (loadingElement) {
+            loadingElement.style.display = 'none';
+        }
+    }
 }
 
 // Perform the actual search
@@ -579,10 +661,19 @@ async function performSearch(vehicleData) {
             buildFilters(allParts);
             displayResults();
         } else {
-            const errorElement = document.getElementById('error-message');
-            if (errorElement) {
-                errorElement.innerHTML = 'No parts found for this vehicle.';
-                errorElement.style.display = 'block';
+            const searchResultsDiv = document.getElementById('search-results');
+            if (searchResultsDiv) {
+                searchResultsDiv.classList.remove('hidden');
+            }
+
+            const summaryContainer = document.getElementById('results-summary');
+            if (summaryContainer) {
+                summaryContainer.innerHTML = `
+                    <div>No parts found for this vehicle</div>
+                    <div>
+                        <div class="button-clear-search" onclick="clearSearchResults()">Clear Results</div>
+                    </div>
+                `;
             }
         }
     } catch (error) {
@@ -597,6 +688,28 @@ async function performSearch(vehicleData) {
     if (loadingElement) {
         loadingElement.style.display = 'none';
     }
+}
+
+// Toggle text expansion
+function toggleText(elementId, button) {
+    const element = document.getElementById(elementId);
+    if (element.classList.contains('expanded')) {
+        element.classList.remove('expanded');
+        button.textContent = 'Read more';
+    } else {
+        element.classList.add('expanded');
+        button.textContent = 'Read less';
+    }
+}
+
+// Check if text needs "Read more" button
+function checkTextHeight() {
+    document.querySelectorAll('.text-limit').forEach(element => {
+        const button = element.nextElementSibling;
+        if (element.scrollHeight > element.clientHeight) {
+            button.style.display = 'inline-block';
+        }
+    });
 }
 
 // Listen for search events from the YMM widget

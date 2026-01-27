@@ -58,9 +58,11 @@
 {{ 'ymm-widget.css' | asset_url | stylesheet_tag }}
 
 <script>
-  window.YMM_CONFIG = {
-    apiKey: "{{ shop.metafields.year_make_model.api_key | escape }}"
+  window.OPTICAT_CONFIG = {
+    apiUrl: 'https://webservice.opticatonline.com/autocare/v1/services/Catalog.jsonEndpoint',
+    apiKey: '2BeBXg6FtqihLXMGmWdc2DQYRLozzH6MQ3owHfWNhBz4Qb47WR3y'
   };
+  window.searchResultsPageUrl = {{ block.settings.results_page_url | json }};
 </script>
 
 <script src="{{ 'ymm-widget.js' | asset_url }}" defer></script>
@@ -70,14 +72,12 @@
   "name": "Year Make Model Widget",
   "target": "section",
   "settings": [
-    { "type": "product", "id": "product", "label": "product", "autofill": true },
-    { "type": "color", "id": "colour", "label": "Star Colour", "default": "#ff0000" },
     {
       "type": "text",
       "id": "results_page_url",
-      "label": "Search Results Page URL",
-      "info": "URL of the page containing the search results block (e.g., /pages/search-results). Leave empty if results block is on same page.",
-      "default": "/pages/search-results"
+      "label": "Search Results redirect URL",
+      "info": "URL of the page containing the search results block (e.g., /search). Leave empty if results block is on same page.",
+      "default": "/search"
     }
   ]
 }

@@ -31,11 +31,6 @@
   font-size: 20px;
 }
 
-.shopify-app-block {
-  width: 100%;
-  max-width: 100%;
-}
-
 .row {
   display: flex;
   justify-content: space-between;
@@ -107,6 +102,24 @@ select {
   text-decoration: none !important;
 }
 
+/* Tablet styles (769px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .row {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .v-line {
+    display: none;
+  }
+
+  .location-type {
+    justify-content: flex-start;
+    gap: 40px;
+  }
+}
+
+/* Mobile styles (up to 768px) */
 @media (max-width: 768px) {
   
   .widget-header-wrapper {
