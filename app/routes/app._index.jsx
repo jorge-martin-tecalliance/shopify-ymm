@@ -158,7 +158,7 @@ export default function Index() {
                 borderRadius="base"
                 background="subdued"
               >
-                <pre style={{ margin: 0 }}>
+                <pre>
                   <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
                 </pre>
               </s-box>
@@ -170,7 +170,7 @@ export default function Index() {
                 borderRadius="base"
                 background="subdued"
               >
-                <pre style={{ margin: 0 }}>
+                <pre>
                   <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
                 </pre>
               </s-box>
