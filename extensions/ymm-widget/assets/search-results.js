@@ -71,30 +71,6 @@ async function fetchShopifyProducts() {
                 });
             }
 
-            // Find the criterion option position
-        //     const criterionOption = product.options.find(opt => 
-        //         opt.name.toLowerCase() === 'occatalog'
-        //     );
-            
-        //     if (criterionOption) {
-        //         // Get all criterion values for this product
-        //         const criterionValues = criterionOption.values;
-                
-        //         // Assuming first value is brand code, second is part number
-        //         if (criterionValues.length >= 2) {
-
-        //             criterionProducts.push({
-        //                 brandCode: criterionValues[0],
-        //                 partNumber: criterionValues[1],
-        //                 productId: product.id,
-        //                 productTitle: product.title,
-        //                 productHandle: product.handle,
-        //                 productPrice: product.variants[0].price,
-        //                 variantId: product.variants[0].id
-        //             });
-        //         }
-        //     }
-
         });
 
         console.log('Extracted criterion products:', criterionProducts);
@@ -266,8 +242,21 @@ function clearSearchResults() {
         errorElement.style.display = 'none';
         errorElement.innerHTML = '';
     }
-    
-    console.log('Search results cleared');
+
+    // Reset YMM dropdowns to default
+    const yearSelect = document.getElementById('year-select');
+    const makeSelect = document.getElementById('make-select');
+    const modelSelect = document.getElementById('model-select');
+
+    if (yearSelect) yearSelect.value = '';
+    if (makeSelect) {
+        makeSelect.innerHTML = '<option value="">Select Make *</option>';
+        makeSelect.disabled = true;
+    }
+    if (modelSelect) {
+        modelSelect.innerHTML = '<option value="">Select Model *</option>';
+        modelSelect.disabled = true;
+    }
 }
 
 // Display results
@@ -658,7 +647,7 @@ async function performSearch(vehicleData) {
         if (result.parts && result.parts.length > 0) {
             allParts = result.parts;
             filteredParts = [...allParts];
-            buildFilters(allParts);
+            // buildFilters(allParts); // Removed - categories now loaded from database
             displayResults();
         } else {
             const searchResultsDiv = document.getElementById('search-results');

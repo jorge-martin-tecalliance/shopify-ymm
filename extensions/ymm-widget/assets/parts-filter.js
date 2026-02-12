@@ -15,6 +15,205 @@ function toggleFilters() {
     }
 }
 
+// Fetch categories from database via app proxy
+async function fetchCategories() {
+    try {
+        const response = await fetch('/apps/part-search/api/categories/public');
+        const data = await response.json();
+        buildFiltersFromDatabase(data.categories);
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+    }
+}
+
+async function searchBasedOnFilters() {
+    console.log("Filters search button clicked");
+
+    // Get the selected vehicle from sessionStorage
+    const vehicleData = JSON.parse(sessionStorage.getItem('ymmSearchData'));
+    if (!vehicleData || !vehicleData.baseVehicleId) {
+        alert('Please select a vehicle first using the Year/Make/Model widget');
+        return;
+    }
+
+    // Get selected part type IDs from checked checkboxes
+    const selectedPartTypeIds = [];
+    document.querySelectorAll('.filter-checkbox input[type="checkbox"]:checked').forEach(checkbox => {
+        const terminologyId = parseInt(checkbox.dataset.terminologyId);
+        if (terminologyId) {
+            selectedPartTypeIds.push(terminologyId);
+        }
+    });
+
+    if (selectedPartTypeIds.length === 0) {
+        alert('Please select at least one part type to search');
+        return;
+    }
+
+    console.log('Searching for part types:', selectedPartTypeIds);
+    console.log('For vehicle:', vehicleData.baseVehicleId);
+    
+    const apiData = {
+        "getAutoCareSearchResults": {
+            "partTypeIds": selectedPartTypeIds, // Array of selected IDs
+            "baseVehicleId": parseInt(vehicleData.baseVehicleId),
+            "baseVehicleRegionId": parseInt(vehicleData.regionId),
+            "includeParts": true,
+            "includePartFitments": true,
+            "perPage": 100,
+            "page": 1
+        }
+    };
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'X-Api-Key': API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(apiData)
+        });
+
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        // Just log the results
+        console.log('=== SEARCH RESULTS ===');
+        console.log('Total parts found:', result.parts?.length || 0);
+        console.log('Parts data:', result.parts);
+        console.log('Full response:', result);
+
+        // Fetch Shopify products with criterion data
+        const shopifyProducts = await fetchShopifyProducts();
+
+        // Match OptiCat parts with Shopify products
+        const matchedParts = result.parts.map(part => {
+            const apiBrandCode = part.piesItem.brandCode;
+            const apiPartNumber = part.piesItem.partNumber;
+            
+            const matchingShopifyProduct = shopifyProducts.find(shopifyProduct => 
+                shopifyProduct.brandCode === apiBrandCode && 
+                shopifyProduct.partNumber === apiPartNumber
+            );
+            
+            if (matchingShopifyProduct) {
+                console.log(`Match found: ${apiBrandCode} - ${apiPartNumber}`);
+                return {
+                    ...part,
+                    shopifyProduct: matchingShopifyProduct
+                };
+            }
+            
+            return null;
+        }).filter(part => part !== null);
+
+        console.log('Matched parts with Shopify products:', matchedParts.length);
+
+        // Update global arrays (these are used by displayResults)
+        allParts = matchedParts;
+        filteredParts = [...matchedParts];
+
+        // Display the results on the page
+        displayResults();
+
+    } catch (error) {
+        console.error('API Error:', error);
+        throw error;
+    }
+}
+
+// Build filters from database categories
+function buildFiltersFromDatabase(categoriesData) {
+    const container = document.getElementById('category-filters');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    categoriesData.forEach(category => {
+        // Create category item
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'filter-category';
+        
+        const categoryHeader = document.createElement('div');
+        categoryHeader.className = 'filter-category-header';
+        categoryHeader.innerHTML = `<span class="toggle-icon">+</span> ${category.name}`;
+        
+        const subcategoriesDiv = document.createElement('div');
+        subcategoriesDiv.className = 'filter-subcategories hidden';
+        
+        // Add subcategories
+        category.subcategories.forEach(sub => {
+            const subDiv = document.createElement('div');
+            subDiv.className = 'filter-subcategory';
+            
+            const subHeader = document.createElement('div');
+            subHeader.className = 'filter-subcategory-header';
+            subHeader.innerHTML = `<span class="toggle-icon">+</span> ${sub.name}`;
+            
+            const partTypesDiv = document.createElement('div');
+            partTypesDiv.className = 'filter-parttypes hidden';
+            
+            // Add part types with checkboxes
+            sub.partTypes.forEach(pt => {
+                const label = document.createElement('label');
+                label.className = 'filter-checkbox';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = pt.name;
+                checkbox.dataset.terminologyId = pt.terminologyId; // Store the PartTerminologyID
+                checkbox.addEventListener('change', (e) => {
+                    console.log('Part Type Selected:', pt.name, 'PartTerminologyID:', pt.terminologyId);
+                });
+                
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(pt.name));
+                partTypesDiv.appendChild(label);
+            });
+            
+            // Toggle subcategory
+            subHeader.addEventListener('click', () => {
+                const icon = subHeader.querySelector('.toggle-icon');
+                if (partTypesDiv.classList.contains('hidden')) {
+                    partTypesDiv.classList.remove('hidden');
+                    icon.textContent = '−';
+                } else {
+                    partTypesDiv.classList.add('hidden');
+                    icon.textContent = '+';
+                }
+            });
+            
+            subDiv.appendChild(subHeader);
+            subDiv.appendChild(partTypesDiv);
+            subcategoriesDiv.appendChild(subDiv);
+        });
+        
+        // Toggle category
+        categoryHeader.addEventListener('click', () => {
+            const icon = categoryHeader.querySelector('.toggle-icon');
+            if (subcategoriesDiv.classList.contains('hidden')) {
+                subcategoriesDiv.classList.remove('hidden');
+                icon.textContent = '−';
+            } else {
+                subcategoriesDiv.classList.add('hidden');
+                icon.textContent = '+';
+            }
+        });
+        
+        categoryDiv.appendChild(categoryHeader);
+        categoryDiv.appendChild(subcategoriesDiv);
+        container.appendChild(categoryDiv);
+    });
+    
+    // Hide subcategory and parttype containers since we're building hierarchically
+    document.getElementById('subcategory-filters').style.display = 'none';
+    document.getElementById('parttype-filters').style.display = 'none';
+}
+
 // Build filter options from parts data
 function buildFilters(parts) {
     const categories = new Set();
@@ -120,5 +319,14 @@ function clearAllFilters() {
         checkbox.checked = false;
     });
 
-    applyFilters();
+    // Re-run the original vehicle search from sessionStorage
+    const vehicleData = JSON.parse(sessionStorage.getItem('ymmSearchData'));
+    if (vehicleData) {
+        performSearch(vehicleData);
+    } else {
+        console.warn('No vehicle data in sessionStorage');
+    }
 }
+
+// Initialize - fetch categories from database on page load
+fetchCategories();

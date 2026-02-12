@@ -56,6 +56,7 @@ model SubCategory {
 model PartType {
   id            Int           @id @default(autoincrement())
   name          String
+  terminologyId Int?
   subCategoryId Int
   subCategory   SubCategory @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
   createdAt     DateTime    @default(now())

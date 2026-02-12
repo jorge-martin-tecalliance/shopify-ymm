@@ -257,14 +257,16 @@ function loadMake() {
 // Fetches and loads all the vehicle models in OptiCat catalog based on the make selected
 function loadModel() {
     let regionIds = document.getElementById('region-select').value;
-    let vehicleTypeIds = document.getElementById('type-select').value;
+    let vehicleTypeIds = document.getElementById('type-select').value.split(',').map(id => parseInt(id.trim()));
     let year = document.getElementById('year-select').value;
     let makeId = document.getElementById('make-select').value;
+
+    console.log(vehicleTypeIds)
 
     const data = {
         "getAutoCareVehicleResults": {
             "regionIds": regionIds,
-            "vehicleTypeIds": [parseInt(vehicleTypeIds)],
+            "vehicleTypeIds": vehicleTypeIds,
             "years": [year],
             "makeIds": [makeId],
             "modelFacets": {
@@ -459,3 +461,49 @@ async function searchParts() {
         }
     }
 }
+
+function restoreVehicleSelections() {
+    // Get saved vehicle data
+    const vehicleData = JSON.parse(sessionStorage.getItem('ymmSearchData'));
+    
+    // Step 1: Restore Year
+    const yearSelect = document.getElementById('year-select');
+    if (!yearSelect) return;
+    
+    yearSelect.value = vehicleData.year;
+    if (yearSelect.value !== vehicleData.year) {
+        // Year dropdown not ready yet, retry
+        setTimeout(() => restoreVehicleSelections(), 500);
+        return;
+    }
+    
+    // Step 2: Load and restore Make
+    if (!vehicleData.makeId) return;
+    
+    loadYearChange(); // Fetch makes for this year
+    setTimeout(() => {
+        const makeSelect = document.getElementById('make-select');
+        if (!makeSelect || makeSelect.options.length <= 1) {
+            console.warn('Makes not loaded yet');
+            return;
+        }
+        
+        makeSelect.value = vehicleData.makeId;
+        
+        // Step 3: Load and restore Model
+        if (!vehicleData.modelId) return;
+        
+        loadMakeChange(); // Fetch models for this make
+        setTimeout(() => {
+            const modelSelect = document.getElementById('model-select');
+            if (!modelSelect || modelSelect.options.length <= 1) {
+                console.warn('Models not loaded yet');
+                return;
+            }
+            
+            modelSelect.value = vehicleData.modelId;
+        }, 1000);
+    }, 1000);
+}
+
+restoreVehicleSelections();

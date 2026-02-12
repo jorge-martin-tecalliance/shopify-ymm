@@ -3,8 +3,11 @@ import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import partTypeData from "../data/partTypeData";
 import "../styles/categories.css";
+import Modal from "../components/Modal";
 
+// Server-side loader: Fetches categories with nested subcategories and part types
 export async function loader({ request }) {
   await authenticate.admin(request);
   
@@ -26,21 +29,55 @@ export async function loader({ request }) {
 }
 
 export default function Categories() {
+  // Data & Core Hooks
   const { categories } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
-  
-  const [showForm, setShowForm] = useState(false);
+
+  // Category State
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [newCategory, setNewCategory] = useState({ name: "" });
 
-  const [showSubcategoryForm, setShowSubcategoryForm] = useState(false);
+  // Subcategory State
+  const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
+  const [editingSubcategory, setEditingSubcategory] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [newSubcategory, setNewSubcategory] = useState({ name: "" });
 
-  const [showPartTypeForm, setShowPartTypeForm] = useState(false);
+  // Part Type State
+  const [showPartTypeModal, setShowPartTypeModal] = useState(false);
+  const [editingPartType, setEditingPartType] = useState(null);
   const [selectedSubCategoryId, setSelectedSubCategoryId] = useState(null);
   const [newPartType, setNewPartType] = useState({ name: "" });
+  const [partTypeSearch, setPartTypeSearch] = useState("");
+  const [showPartTypeDropdown, setShowPartTypeDropdown] = useState(false);
+
+  // UI State
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [expandedSubcategories, setExpandedSubcategories] = useState({});
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Filter part types based on search
+  const filteredPartTypes = partTypeSearch
+    ? partTypeData.filter(pt => 
+        pt.PartTerminologyName.toLowerCase().includes(partTypeSearch.toLowerCase())
+      ).slice(0, 100) // Limit to 100 results for performance
+    : partTypeData.slice(0, 100); // Show first 100 by default
+
+  const toggleCategory = (categoryId) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }));
+  };
+
+  const toggleSubcategory = (subcategoryId) => {
+    setExpandedSubcategories(prev => ({
+      ...prev,
+      [subcategoryId]: !prev[subcategoryId]
+    }));
+  };
 
   useEffect(() => {
     if (fetcher.data?.success) {
@@ -51,16 +88,34 @@ export default function Categories() {
       } else {
         shopify.toast.show("Created successfully");
       }
-      setShowForm(false);
-      setShowSubcategoryForm(false);
-      setShowPartTypeForm(false);
+
+      setShowCategoryModal(false);
+      setShowSubcategoryModal(false);
+      setShowPartTypeModal(false);
       setEditingCategory(null);
+      setEditingSubcategory(null);
+      setEditingPartType(null);
       setNewCategory({ name: "" });
       setNewSubcategory({ name: "" });
       setNewPartType({ name: "" });
+      setErrorMessage("");
       window.location.reload();
+    } else if (fetcher.data?.error) {
+        setErrorMessage(fetcher.data.error);
     }
   }, [fetcher.data, shopify]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showPartTypeDropdown && !event.target.closest('.searchable-select')) {
+        setShowPartTypeDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPartTypeDropdown]);
 
   const handleCreateCategory = () => {
     const formData = new FormData();
@@ -77,13 +132,13 @@ export default function Categories() {
   const handleEditCategory = (category) => {
     setEditingCategory(category);
     setNewCategory({ name: category.name });
-    setShowForm(true);
+    setShowCategoryModal(true);
   };
 
   const handleCancelEdit = () => {
     setEditingCategory(null);
     setNewCategory({ name: "" });
-    setShowForm(false);
+    setShowCategoryModal(false);
   };
 
   const handleDeleteCategory = (categoryId) => {
@@ -98,192 +153,342 @@ export default function Categories() {
   const handleAddSubcategory = (categoryId) => {
     setSelectedCategoryId(categoryId);
     setNewSubcategory({ name: "" });
-    setShowSubcategoryForm(true);
+    setShowSubcategoryModal(true);
+  };
+
+  const handleCancelSubcategoryEdit = () => {
+    setEditingSubcategory(null);
+    setNewSubcategory({ name: "" });
+    setShowSubcategoryModal(false);
   };
 
   const handleCreateSubcategory = () => {
     const formData = new FormData();
-    formData.append("action", "createSubcategory");
-    formData.append("categoryId", selectedCategoryId);
+    
+    if (editingSubcategory) {
+      formData.append("action", "updateSubcategory");
+      formData.append("subcategoryId", editingSubcategory.id);
+    } else {
+      formData.append("action", "createSubcategory");
+      formData.append("categoryId", selectedCategoryId);
+    }
+    
     formData.append("name", newSubcategory.name);
     fetcher.submit(formData, { method: "post" });
+  };
+
+  const handleEditSubcategory = (subcategory) => {
+    setEditingSubcategory(subcategory);
+    setNewSubcategory({ name: subcategory.name });
+    setShowSubcategoryModal(true);
+  };
+
+  const handleDeleteSubcategory = (subcategoryId) => {
+    if (confirm("Are you sure you want to delete this subcategory? This will also delete all part types under it.")) {
+      const formData = new FormData();
+      formData.append("action", "deleteSubcategory");
+      formData.append("subcategoryId", subcategoryId);
+      fetcher.submit(formData, { method: "post" });
+    }
   };
 
   const handleAddPartType = (subCategoryId) => {
     setSelectedSubCategoryId(subCategoryId);
     setNewPartType({ name: "" });
-    setShowPartTypeForm(true);
+    setShowPartTypeModal(true);
   };
 
   const handleCreatePartType = () => {
     const formData = new FormData();
-    formData.append("action", "createPartType");
-    formData.append("subCategoryId", selectedSubCategoryId);
+    
+    // Find the PartTerminologyID from partTypeData
+    const partTypeInfo = partTypeData.find(pt => pt.PartTerminologyName === newPartType.name);
+    
+    if (editingPartType) {
+      formData.append("action", "updatePartType");
+      formData.append("partTypeId", editingPartType.id);
+    } else {
+      formData.append("action", "createPartType");
+      formData.append("subCategoryId", selectedSubCategoryId);
+    }
+    
     formData.append("name", newPartType.name);
+    if (partTypeInfo) {
+        formData.append("terminologyId", partTypeInfo.PartTerminologyID);
+    }
+
     fetcher.submit(formData, { method: "post" });
   };
 
+  const handleCancelPartTypeEdit = () => {
+    setEditingPartType(null);
+    setNewPartType({ name: "" });
+    setShowPartTypeModal(false);
+  };
+
+  const handleEditPartType = (partType) => {
+    setEditingPartType(partType);
+    setNewPartType({ name: partType.name });
+    setShowPartTypeModal(true);
+  };
+
+  const handleDeletePartType = (partTypeId) => {
+    if (confirm("Are you sure you want to delete this part type?")) {
+      const formData = new FormData();
+      formData.append("action", "deletePartType");
+      formData.append("partTypeId", partTypeId);
+      fetcher.submit(formData, { method: "post" });
+    }
+  };
+
   return (
-    <div className="categories-page">
-      <div className="page-header">
-        <h1>Category Management</h1>
-        <button 
-          className="btn btn-primary" 
-          onClick={() => {
-            setEditingCategory(null);
-            setNewCategory({ name: "" });
-            setShowForm(!showForm);
-          }}
+    <div className="category-page">
+      <div className="section">
+        <div className="category-section-label">
+          <span>Categories</span>
+          <button className="btn btn-primary" onClick={() => {setEditingCategory(null); setNewCategory({ name: "" }); setShowCategoryModal(!showCategoryModal);}}>
+            {showCategoryModal && !editingCategory ? "Cancel" : "Add Category"}
+          </button>
+        </div>
+
+        <Modal
+          isOpen={showCategoryModal}
+          onClose={handleCancelEdit}
+          title={editingCategory ? "Edit Category" : "Create New Category"}
+          errorMessage={errorMessage}
+          fieldLabel="Category Name"
+          fieldValue={newCategory.name}
+          onFieldChange={(e) => setNewCategory({ name: e.target.value })}
+          fieldPlaceholder="Enter category name"
+          onSubmit={handleCreateCategory}
+          submitLabel={editingCategory ? "Update Category" : "Create Category"}
+          isEditing={!!editingCategory}
+        />
+
+        <Modal
+          isOpen={showSubcategoryModal}
+          onClose={handleCancelSubcategoryEdit}
+          title={editingSubcategory ? "Edit Subcategory" : "Add Subcategory"}
+          errorMessage={errorMessage}
+          fieldLabel="Subcategory Name"
+          fieldValue={newSubcategory.name}
+          onFieldChange={(e) => setNewSubcategory({ name: e.target.value })}
+          fieldPlaceholder="Enter subcategory name"
+          onSubmit={handleCreateSubcategory}
+          submitLabel={editingSubcategory ? "Update Subcategory" : "Create Subcategory"}
+          isEditing={!!editingSubcategory}
+        />
+
+        <Modal
+          isOpen={showPartTypeModal}
+          onClose={handleCancelPartTypeEdit}
+          title={editingPartType ? "Edit Part Type" : "Add Part Type"}
+          errorMessage={errorMessage}
+          onSubmit={handleCreatePartType}
+          submitLabel={editingPartType ? "Update Part Type" : "Create Part Type"}
         >
-          {showForm && !editingCategory ? "Cancel" : "Add Category"}
-        </button>
-      </div>
-
-      {showForm && (
-        <div className="form-section">
-          <div className="form-box">
-            <h2>{editingCategory ? "Edit Category" : "Create New Category"}</h2>
-            <div className="form-group">
-              <label>Category Name</label>
-              <input
+          <div className="form-group">
+            <label>Part Type Name</label>
+            <div className="searchable-select" onClick={() => setShowPartTypeDropdown(!showPartTypeDropdown)}>
+              <input className="searchable-select-input"
                 type="text"
-                value={newCategory.name}
-                onChange={(e) => setNewCategory({ name: e.target.value })}
-                placeholder="Enter category name"
+                value={newPartType.name || partTypeSearch}
+                onChange={(e) => {
+                  setPartTypeSearch(e.target.value);
+                  setNewPartType({ name: "" });
+                  setShowPartTypeDropdown(true);
+                }}
+                onFocus={() => setShowPartTypeDropdown(true)}
+                placeholder="Search or select a part type..."
               />
-            </div>
-            <div className="form-actions">
-              <button className="btn btn-primary" onClick={handleCreateCategory}>
-                {editingCategory ? "Update Category" : "Create Category"}
-              </button>
-              <button className="btn btn-secondary" onClick={handleCancelEdit}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showSubcategoryForm && (
-        <div className="form-section">
-          <div className="form-box">
-            <h2>Add Subcategory</h2>
-            <div className="form-group">
-              <label>Subcategory Name</label>
-              <input
-                type="text"
-                value={newSubcategory.name}
-                onChange={(e) => setNewSubcategory({ name: e.target.value })}
-                placeholder="Enter subcategory name"
-              />
-            </div>
-            <div className="form-actions">
-              <button className="btn btn-primary" onClick={handleCreateSubcategory}>
-                Create Subcategory
-              </button>
-              <button className="btn btn-secondary" onClick={() => setShowSubcategoryForm(false)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showPartTypeForm && (
-        <div className="form-section">
-          <div className="form-box">
-            <h2>Add Part Type</h2>
-            <div className="form-group">
-              <label>Part Type Name</label>
-              <input
-                type="text"
-                value={newPartType.name}
-                onChange={(e) => setNewPartType({ name: e.target.value })}
-                placeholder="Enter part type name"
-              />
-            </div>
-            <div className="form-actions">
-              <button className="btn btn-primary" onClick={handleCreatePartType}>
-                Create Part Type
-              </button>
-              <button className="btn btn-secondary" onClick={() => setShowPartTypeForm(false)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="categories-list">
-        {categories.length === 0 ? (
-          <div className="empty-state">
-            <p>No categories yet. Create your first category!</p>
-          </div>
-        ) : (
-          categories.map((category) => (
-            <div key={category.id} className="category-card">
-              <div className="category-header">
-                <h2>{category.name}</h2>
-                <div className="category-actions">
-                  <button className="btn btn-plain" onClick={() => handleEditCategory(category)}>
-                    Edit
-                  </button>
-                  <button className="btn btn-danger" onClick={() => handleDeleteCategory(category.id)}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              <div className="subcategories-section">
-                <div className="section-header">
-                  <h3>Subcategories</h3>
-                  <button className="btn btn-primary btn-small" onClick={() => handleAddSubcategory(category.id)}>
-                    Add Subcategory
-                  </button>
-                </div>
-
-                {category.subcategories.length === 0 ? (
-                  <p className="empty-state-inline">No subcategories</p>
-                ) : (
-                  category.subcategories.map((sub) => (
-                    <div key={sub.id} className="subcategory-card">
-                      <div class="subcategory-header">
-                        <div>{sub.name}</div>
-                        <div className="category-actions">
-                          <button className="btn btn-plain" onClick="#">
-                            Edit
-                          </button>
-                          <button className="btn btn-danger" onClick="#">
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                        
-                      <div className="parttypes-section">
-                        <div className="section-header">
-                          <h5>Part Types</h5>
-                          <button className="btn btn-primary btn-small" onClick={() => handleAddPartType(sub.id)}>
-                            Add Part Type
-                          </button>
-                        </div>
-
-                        {sub.partTypes.length === 0 ? (
-                          <p className="empty-state-inline">No part types</p>
-                        ) : (
-                          <ul className="parttypes-list">
-                            {sub.partTypes.map((pt) => (
-                              <li key={pt.id}>{pt.name}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
+              <span>▼</span>
+              {showPartTypeDropdown && (
+                <div className="dropdown-list">
+                  {filteredPartTypes.map((pt) => (
+                    <div
+                      key={pt.PartTerminologyID}
+                      className="dropdown-list-item"
+                      onClick={() => {
+                        setNewPartType({ name: pt.PartTerminologyName });
+                        setPartTypeSearch("");
+                        setShowPartTypeDropdown(false);
+                      }}
+                    >
+                      {pt.PartTerminologyName}
                     </div>
-                  ))
-                )}
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
+
+        {/* {showPartTypeModal && (
+          <div className="modal-overlay" onClick={handleCancelPartTypeEdit}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <button className="modal-close" onClick={handleCancelPartTypeEdit}>×</button>
+              <h2>{editingPartType ? "Edit Part Type" : "Add Part Type"}</h2>
+
+              {errorMessage && (
+                <div className="error-message">
+                    {errorMessage}
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>Part Type Name</label>
+                <div className="searchable-select" onClick={() => setShowPartTypeDropdown(true)}>
+                  <input type="text" value={newPartType.name || partTypeSearch}
+                    onChange={(e) => {
+                      setPartTypeSearch(e.target.value);
+                      setNewPartType({ name: "" });
+                      setShowPartTypeDropdown(true);
+                    }}
+                    onFocus={() => setShowPartTypeDropdown(true)}
+                    placeholder="Search or select a part type..."
+                  />
+                  <span>
+                    ▼
+                  </span>
+                  {showPartTypeDropdown && (
+                    <div className="dropdown-list">
+                      {filteredPartTypes.map((pt) => (
+                        <div
+                          key={pt.PartTerminologyID}
+                          className="dropdown-list-item"
+                          onClick={() => {
+                            console.log('Selected Part Type:', pt.PartTerminologyName, 'ID:', pt.PartTerminologyID);
+                            setNewPartType({ name: pt.PartTerminologyName });
+                            setPartTypeSearch("");
+                            setShowPartTypeDropdown(false);
+                          }}
+                        >
+                          {pt.PartTerminologyName}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="form-actions">
+                <button className="btn btn-primary" onClick={handleCreatePartType}>
+                  {editingPartType ? "Update Part Type" : "Create Part Type"}
+                </button>
+                <button className="btn btn-secondary" onClick={handleCancelPartTypeEdit}>
+                  Cancel
+                </button>
               </div>
             </div>
-          ))
-        )}
+          </div>
+        )} */}
+
+        <div className="category-section-body">
+          {categories.length === 0 ? (
+            <div className="empty-state">
+              <p>No categories yet. Create your first category!</p>
+            </div>
+          ) : (
+            categories.map((category) => (
+              <div key={category.id} className="category-item">
+                <div className="category-item-header">
+                  <div className="left-header">
+                    <button className="btn-toggle" onClick={() => toggleCategory(category.id)} aria-label="Toggle category">
+                      {expandedCategories[category.id] ? "−" : "+"}
+                    </button>
+                    <div className="header">{category.name}</div>
+                  </div>
+                  <div className="category-actions">
+                    <button className="btn btn-plain" onClick={() => handleEditCategory(category)}>
+                      Edit
+                    </button>
+                    <button className="btn btn-danger" onClick={() => handleDeleteCategory(category.id)}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                {expandedCategories[category.id] && (
+                <div className="category-item-body">
+
+                  <div className="section">
+                    <div className="subcategory-section-label">
+                      <span>Subcategories</span>
+                      <button className="btn btn-primary" onClick={() => handleAddSubcategory(category.id)}>
+                        Add Subcategory
+                      </button>
+                    </div>
+
+                    <div className="subcategory-section-body">
+                      {category.subcategories.length === 0 ? (
+                        <p className="empty-state-inline">No subcategories</p>
+                      ) : (
+                        category.subcategories.map((sub) => (
+                          <div key={sub.id} className="subcategory-item">
+                            <div className="subcategory-item-header">
+                              <div className="left-header">
+                                <button className="btn-toggle" onClick={() => toggleSubcategory(sub.id)} aria-label="Toggle subcategory">
+                                  {expandedSubcategories[sub.id] ? "−" : "+"}
+                                </button>
+                                <div className="header">{sub.name}</div>
+                              </div>
+
+                              <div className="category-actions">
+                                <button className="btn btn-plain" onClick={() => handleEditSubcategory(sub)}>
+                                  Edit
+                                </button>
+                                <button className="btn btn-danger" onClick={() => handleDeleteSubcategory(sub.id)}>
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                              
+                            {expandedSubcategories[sub.id] && (
+                            <div className="subcategory-item-body">
+                              
+                              <div className="section">
+                                <div className="parttype-section-label">
+                                  <span>Part Types</span>
+                                  <button className="btn btn-primary" onClick={() => handleAddPartType(sub.id)}>
+                                    Add Part Type
+                                  </button>
+                                </div>
+
+                                {sub.partTypes.length === 0 ? (
+                                  <p className="empty-state-inline">No part types for this sub-category</p>
+                                ) : (
+                                  <div className="parttype-section-body">
+                                    {sub.partTypes.map((pt) => (
+                                      <div className="parttype-item header" key={pt.id}>{pt.name}
+                                        <div className="category-actions">
+                                          <button className="btn btn-plain" onClick={() => handleEditPartType(pt)}>
+                                            Edit
+                                          </button>
+                                          <button className="btn btn-danger" onClick={() => handleDeletePartType(pt.id)}>
+                                            Delete
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                            </div>
+                            )}
+
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+                )}
+
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -297,10 +502,20 @@ export async function action({ request }) {
 
   if (action === "createCategory") {
     const name = formData.get("name");
-    await db.category.create({
-      data: { name }
-    });
-    return { success: true };
+
+    try {
+      await db.category.create({
+        data: { name }
+      });
+      return { success: true };
+    } catch (error) {
+      if (error.code === 'P2002') {
+            return { success: false, error: `Category "${name}" already exists` };
+        }
+        console.error("Error creating category:", error);
+        return { success: false, error: "Failed to create category" };
+    }
+
   }
 
   if (action === "updateCategory") {
@@ -324,19 +539,74 @@ export async function action({ request }) {
   if (action === "createSubcategory") {
     const categoryId = parseInt(formData.get("categoryId"));
     const name = formData.get("name");
-    await db.subCategory.create({
-      data: { name, categoryId }
+    
+    try {
+        await db.subCategory.create({
+            data: { name, categoryId }
+        });
+        return { success: true };
+    } catch (error) {
+        if (error.code === 'P2002') {
+            return { success: false, error: `Subcategory "${name}" already exists in this category` };
+        }
+        console.error("Error creating subcategory:", error);
+        return { success: false, error: "Failed to create subcategory" };
+    }
+  }
+
+  if (action === "updateSubcategory") {
+    const subcategoryId = parseInt(formData.get("subcategoryId"));
+    const name = formData.get("name");
+    await db.subCategory.update({
+      where: { id: subcategoryId },
+      data: { name }
     });
-    return { success: true };
+    return { success: true, updated: true };
+  }
+
+  if (action === "deleteSubcategory") {
+    const subcategoryId = parseInt(formData.get("subcategoryId"));
+    await db.subCategory.delete({
+      where: { id: subcategoryId }
+    });
+    return { success: true, deleted: true };
   }
 
   if (action === "createPartType") {
     const subCategoryId = parseInt(formData.get("subCategoryId"));
     const name = formData.get("name");
-    await db.partType.create({
-      data: { name, subCategoryId }
+    const terminologyId = formData.get("terminologyId") ? parseInt(formData.get("terminologyId")) : null;
+    
+    try {
+        await db.partType.create({
+            data: { name, subCategoryId, terminologyId }
+        });
+        return { success: true };
+    } catch (error) {
+        if (error.code === 'P2002') {
+            return { success: false, error: `Part type "${name}" already exists in this subcategory` };
+        }
+        console.error("Error creating part type:", error);
+        return { success: false, error: "Failed to create part type" };
+    }
+  }
+
+  if (action === "updatePartType") {
+    const partTypeId = parseInt(formData.get("partTypeId"));
+    const name = formData.get("name");
+    await db.partType.update({
+      where: { id: partTypeId },
+      data: { name }
     });
-    return { success: true };
+    return { success: true, updated: true };
+  }
+
+  if (action === "deletePartType") {
+    const partTypeId = parseInt(formData.get("partTypeId"));
+    await db.partType.delete({
+      where: { id: partTypeId }
+    });
+    return { success: true, deleted: true };
   }
 
   return { success: false };
