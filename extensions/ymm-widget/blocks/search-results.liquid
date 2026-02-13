@@ -24,8 +24,8 @@
 {{ 'search-results.css' | asset_url | stylesheet_tag }}
 {{ 'parts-filter.css' | asset_url | stylesheet_tag }}
 
+<script src="{{ 'parts-filter.js' | asset_url }}"></script>
 <script src="{{ 'search-results.js' | asset_url }}" defer></script>
-<script src="{{ 'parts-filter.js' | asset_url }}" defer></script>
 
 {% schema %}
 {

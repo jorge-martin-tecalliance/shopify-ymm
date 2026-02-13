@@ -32,3 +32,35 @@ model Session {
   refreshToken        String?
   refreshTokenExpires DateTime?
 }
+
+model Category {
+  id            Int           @id @default(autoincrement())
+  name          String        @unique
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  subcategories SubCategory[]
+}
+
+model SubCategory {
+  id          Int           @id @default(autoincrement())
+  name        String
+  categoryId  Int
+  category    Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  partTypes   PartType[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([categoryId, name])
+}
+
+model PartType {
+  id            Int           @id @default(autoincrement())
+  name          String
+  terminologyId Int?
+  subCategoryId Int
+  subCategory   SubCategory @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([subCategoryId, name])
+}

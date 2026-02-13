@@ -1,6 +1,6 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import { AppProvider } from "@shopify/polaris";
-import polarisStyles from "@shopify/polaris/build/esm/styles.css";
+import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
 /* Polaris styles */
 export const links = () => [
@@ -14,15 +14,11 @@ export default function App() {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <link rel="preconnect" href="https://cdn.shopify.com/" />
-        <link
-          rel="stylesheet"
-          href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
-        />
+        <link rel="stylesheet" href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"/>
         <Meta />
         <Links />
       </head>
       <body>
-        {/* 👇 THIS is the missing piece */}
         <AppProvider i18n={{}}>
           <Outlet />
         </AppProvider>
