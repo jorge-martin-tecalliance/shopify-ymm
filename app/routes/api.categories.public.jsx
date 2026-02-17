@@ -4,7 +4,15 @@ import db from "../db.server";
 // Public endpoint - no authentication required, with CORS headers
 export async function loader({ request }) {
   try {
+    const url = new URL(request.url);
+    const shop = url.searchParams.get("shop");
+
+    if (!shop) {
+      return json({ error: "Shop parameter is required" }, { status: 400 });
+    }
+
     const categories = await db.category.findMany({
+      where: { shop },
       include: {
         subcategories: {
           include: {

@@ -9,9 +9,11 @@ import Modal from "../components/Modal";
 
 // Server-side loader: Fetches categories with nested subcategories and part types
 export async function loader({ request }) {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
   
   const categories = await db.category.findMany({
+    where: { shop },
     include: {
       subcategories: {
         include: {
@@ -99,7 +101,6 @@ export default function Categories() {
       setNewSubcategory({ name: "" });
       setNewPartType({ name: "" });
       setErrorMessage("");
-      window.location.reload();
     } else if (fetcher.data?.error) {
         setErrorMessage(fetcher.data.error);
     }
@@ -495,7 +496,8 @@ export default function Categories() {
 }
 
 export async function action({ request }) {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
   
   const formData = await request.formData();
   const action = formData.get("action");
@@ -505,7 +507,7 @@ export async function action({ request }) {
 
     try {
       await db.category.create({
-        data: { name }
+        data: { shop, name }
       });
       return { success: true };
     } catch (error) {
@@ -542,7 +544,7 @@ export async function action({ request }) {
     
     try {
         await db.subCategory.create({
-            data: { name, categoryId }
+            data: { shop, name, categoryId }
         });
         return { success: true };
     } catch (error) {
@@ -579,7 +581,7 @@ export async function action({ request }) {
     
     try {
         await db.partType.create({
-            data: { name, subCategoryId, terminologyId }
+            data: { shop, name, subCategoryId, terminologyId }
         });
         return { success: true };
     } catch (error) {

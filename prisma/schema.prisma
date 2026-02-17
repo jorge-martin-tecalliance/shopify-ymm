@@ -35,14 +35,18 @@ model Session {
 
 model Category {
   id            Int           @id @default(autoincrement())
+  shop          String
   name          String        @unique
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   subcategories SubCategory[]
+
+  @@unique([shop, name])
 }
 
 model SubCategory {
   id          Int           @id @default(autoincrement())
+  shop        String
   name        String
   categoryId  Int
   category    Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -50,11 +54,12 @@ model SubCategory {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  @@unique([categoryId, name])
+  @@unique([shop ,categoryId, name])
 }
 
 model PartType {
   id            Int           @id @default(autoincrement())
+  shop          String
   name          String
   terminologyId Int?
   subCategoryId Int
@@ -62,5 +67,5 @@ model PartType {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  @@unique([subCategoryId, name])
+  @@unique([shop, subCategoryId, name])
 }

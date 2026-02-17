@@ -18,7 +18,8 @@ function toggleFilters() {
 // Fetch categories from database via app proxy
 async function fetchCategories() {
     try {
-        const response = await fetch('/apps/part-search/api/categories/public');
+        const shop = window.Shopify?.shop || '';
+        const response = await fetch(`/apps/part-search/api/categories/public?shop=${encodeURIComponent(shop)}`);
         const data = await response.json();
         buildFiltersFromDatabase(data.categories);
     } catch (error) {
