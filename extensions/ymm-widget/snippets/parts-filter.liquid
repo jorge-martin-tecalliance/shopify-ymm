@@ -3,18 +3,19 @@
 
   <div class="filter-header-wrapper">
     <div class="filter-header">Filters</div>
-    <div class="button-filter-collapse" onclick="toggleFilters()">Toggle</div>
+    <div class="flex-btn" onclick="toggleFilters()">
+      <i class="fa-solid fa-eye-slash"></i>
+    </div>
   </div>
   
   <div id="filter-objects">
     <div class="filter-group">
-      <div class="filter-group-header">Category</div>
       <div id="category-filters"></div>
     </div>
     
     <div class="filter-buttons-wrapper">
-      <div onclick="searchBasedOnFilters()" class="ymm-search-btn">Apply Filters</div>
-      <div onclick="clearAllFilters()" class="button-clear-filters">Remove Filters</div>
+      <div onclick="searchBasedOnFilters()" class="primary-btn">Apply Filters</div>
+      <div onclick="clearAllFilters()" class="primary-btn">Remove Filters</div>
     </div>
   </div>
   

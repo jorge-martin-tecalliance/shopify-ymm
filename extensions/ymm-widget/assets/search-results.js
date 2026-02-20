@@ -14,11 +14,7 @@ if (typeof window.cartEventDebugger === 'undefined') {
             console.log(`🛒 Cart Event Detected: ${eventName}`, event.detail);
         });
     });
-    
-    console.log('🔍 Cart event debugger activated - watching for cart events...');
 }
-
-console.log("Search results script loaded");
 
 // Vehicle Parts Search JavaScript
 const API_URL = window.OPTICAT_CONFIG?.apiUrl;
@@ -29,9 +25,7 @@ let filteredParts = [];
 
 // Fetch Shopify products with criterion data
 async function fetchShopifyProducts() {
-    try {
-        console.log('Fetching Shopify products...');
-        
+    try {        
         const response = await fetch('/products.json?limit=250');
         
         if (!response.ok) {
@@ -39,8 +33,6 @@ async function fetchShopifyProducts() {
         }
         
         const data = await response.json();
-        
-        console.log('Shopify products data:', data);
         
         const criterionProducts = [];
         
@@ -73,7 +65,6 @@ async function fetchShopifyProducts() {
 
         });
 
-        console.log('Extracted criterion products:', criterionProducts);
         return criterionProducts;
 
     } catch (error) {
@@ -117,64 +108,121 @@ function displayVehicleInfo(vehicleData) {
     }
 }
 
-// Fetch parts from OptiCat API
-async function fetchParts(vehicleData) {
-    const apiData = {
-        "getAutoCareSearchResults": {
-            "baseVehicleId": parseInt(vehicleData.baseVehicleId),
-            "baseVehicleRegionId": parseInt(vehicleData.regionId),
-            "includeParts": true,
-            "includePartFitments": true,
-            "perPage": 100,
-            "page": 1
+// Helper function to match parts with Shopify products
+function matchPartsWithShopify(parts, shopifyProducts) {
+    return parts.map(part => {
+        const apiBrandCode = part.piesItem.brandCode;
+        const apiPartNumber = part.piesItem.partNumber;
+        
+        const matchingShopifyProduct = shopifyProducts.find(shopifyProduct => 
+            shopifyProduct.brandCode === apiBrandCode && 
+            shopifyProduct.partNumber === apiPartNumber
+        );
+        
+        if (matchingShopifyProduct) {
+            return {
+                ...part,
+                shopifyProduct: matchingShopifyProduct
+            };
         }
-    };
+        
+        return null;
+    }).filter(part => part !== null);
+}
+
+// Fetch parts from OptiCat API with progressive loading
+async function fetchParts(vehicleData) {
+    let allApiParts = [];
+    let currentApiPage = 1;
+    const perPage = 100;
+    let hasMorePages = true;
+    let shopifyProducts = null;
 
     try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'X-Api-Key': API_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(apiData)
-        });
+        // Fetch Shopify products once (we'll reuse this)
+        shopifyProducts = await fetchShopifyProducts();
 
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.status}`);
+        // Fetch all pages from OptiCat API
+        while (hasMorePages) {
+            const apiData = {
+                "getAutoCareSearchResults": {
+                    "baseVehicleId": parseInt(vehicleData.baseVehicleId),
+                    "baseVehicleRegionId": parseInt(vehicleData.regionId),
+                    "includeParts": true,
+                    "includePartFitments": true,
+                    "perPage": perPage,
+                    "page": currentApiPage
+                }
+            };
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'X-Api-Key': API_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(apiData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.parts && result.parts.length > 0) {
+                allApiParts = allApiParts.concat(result.parts);
+                
+                // FIRST PAGE: Display immediately
+                if (currentApiPage === 1) {
+                    const firstPageMatched = matchPartsWithShopify(result.parts, shopifyProducts);
+                    
+                    // Update global arrays with first page
+                    allParts = firstPageMatched;
+                    filteredParts = [...firstPageMatched];
+                    currentPage = 1; // Reset to page 1
+                    displayResults();
+                    
+                    // Continue fetching remaining pages in background
+                    if (result.parts.length >= perPage) {
+                        currentApiPage++;
+                        // Don't return yet, continue the loop
+                    } else {
+                        hasMorePages = false;
+                    }
+                } else {
+                    // SUBSEQUENT PAGES: Add to results and update display
+                    const newMatched = matchPartsWithShopify(result.parts, shopifyProducts);
+                    
+                    // Append to global arrays
+                    allParts = allParts.concat(newMatched);
+                    filteredParts = [...allParts];
+                    
+                    // Only update the summary count, don't re-render everything
+                    updateResultsSummary();
+                    
+                    if (result.parts.length < perPage) {
+                        hasMorePages = false;
+                    } else {
+                        currentApiPage++;
+                    }
+                }
+            } else {
+                hasMorePages = false;
+                // If this is the first page and no parts found, show the empty state
+                if (currentApiPage === 1) {
+                    allParts = [];
+                    filteredParts = [];
+                    currentPage = 1;
+                    displayResults();
+                }
+            }
         }
 
-        const result = await response.json();
-        console.log('OptiCat parts:', result.parts);
-
-        // Fetch Shopify products with criterion data
-        const shopifyProducts = await fetchShopifyProducts();
-
-        // Filter and enhance API parts with Shopify data
-        const filteredParts = result.parts.map(part => {
-            const apiBrandCode = part.piesItem.brandCode;
-            const apiPartNumber = part.piesItem.partNumber;
-            
-            // Find matching Shopify product
-            const matchingShopifyProduct = shopifyProducts.find(shopifyProduct => 
-                shopifyProduct.brandCode === apiBrandCode && 
-                shopifyProduct.partNumber === apiPartNumber
-            );
-            
-            if (matchingShopifyProduct) {
-                console.log(`Match found: ${apiBrandCode} - ${apiPartNumber}`);
-                // Add Shopify data to the part
-                return {
-                    ...part,
-                    shopifyProduct: matchingShopifyProduct
-                };
-            }
-            
-            return null; // No match found
-        }).filter(part => part !== null); // Remove parts without matches
-
-        console.log('API parts after filtering:', filteredParts.length);
-        return { ...result, parts: filteredParts };
+        console.log(`✓ Total parts fetched from OptiCat: ${allApiParts.length}`);
+        console.log(`✓ Total matched with Shopify: ${allParts.length}`);
+        
+        return { parts: allParts };
 
     } catch (error) {
         console.error('API Error:', error);
@@ -231,11 +279,7 @@ function clearSearchResults() {
     // Clear sessionStorage data
     sessionStorage.removeItem('ymmSearchData');
     
-    // Hide loading and error messages
-    const loadingElement = document.getElementById('loading-message');
-    if (loadingElement) {
-        loadingElement.style.display = 'none';
-    }
+    // Hide error messages
     
     const errorElement = document.getElementById('error-message');
     if (errorElement) {
@@ -247,6 +291,7 @@ function clearSearchResults() {
     const yearSelect = document.getElementById('year-select');
     const makeSelect = document.getElementById('make-select');
     const modelSelect = document.getElementById('model-select');
+    const searchButton = document.getElementById('search-button');
 
     if (yearSelect) yearSelect.value = '';
     if (makeSelect) {
@@ -257,9 +302,108 @@ function clearSearchResults() {
         modelSelect.innerHTML = '<option value="">Select Model *</option>';
         modelSelect.disabled = true;
     }
+    if (searchButton) {
+        searchButton.disabled = true;
+    }
 }
 
-// Display results
+// Pagination variables
+let currentPage = 1;
+const itemsPerPage = 20;
+
+// Update just the results summary without re-rendering
+function updateResultsSummary() {
+    const summaryContainer = document.getElementById('results-summary');
+    if (!summaryContainer) return;
+
+    const totalPages = Math.ceil(filteredParts.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+
+    // Only update the part count, not the entire summary
+    const partCountDiv = summaryContainer.querySelector('.part-count');
+    if (partCountDiv) {
+        partCountDiv.innerHTML = `<strong>${startIndex + 1}-${Math.min(endIndex, filteredParts.length)}</strong> of <strong>${filteredParts.length}</strong> parts`;
+    }
+    
+    // Update pagination only if total pages changed
+    const paginationContainer = document.getElementById('pagination-controls');
+    if (paginationContainer) {
+        const currentTotalPages = Math.ceil(filteredParts.length / itemsPerPage);
+        // Only re-render if we don't have pagination yet or page count changed significantly
+        if (!paginationContainer.querySelector('.ymm-pagination') || 
+            Math.abs(currentTotalPages - totalPages) > 0) {
+            setTimeout(() => renderPagination(currentTotalPages), 0);
+        }
+    }
+}
+
+// Render pagination controls
+function renderPagination(totalPages) {
+    const paginationContainer = document.getElementById('pagination-controls');
+    if (!paginationContainer) return;
+
+    if (totalPages <= 1) {
+        paginationContainer.innerHTML = '';
+        return;
+    }
+
+    let paginationHTML = '<div class="ymm-pagination">';
+    
+    // Previous button
+    if (currentPage > 1) {
+        paginationHTML += `<div class="ymm-pagination-btn" onclick="goToPage(${currentPage - 1})"><i class="fa-solid fa-chevron-left"></i></div>`;
+    }
+    
+    // Page numbers
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    if (startPage > 1) {
+        paginationHTML += `<div class="ymm-pagination-btn" onclick="goToPage(1)">1</div>`;
+        if (startPage > 2) {
+            paginationHTML += `<span class="ymm-pagination-ellipsis">...</span>`;
+        }
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        if (i === currentPage) {
+            paginationHTML += `<div class="ymm-pagination-btn ymm-active">${i}</div>`;
+        } else {
+            paginationHTML += `<div class="ymm-pagination-btn" onclick="goToPage(${i})">${i}</div>`;
+        }
+    }
+    
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            paginationHTML += `<span class="ymm-pagination-ellipsis">...</span>`;
+        }
+        paginationHTML += `<div class="ymm-pagination-btn" onclick="goToPage(${totalPages})">${totalPages}</div>`;
+    }
+    
+    // Next button
+    if (currentPage < totalPages) {
+        paginationHTML += `<div class="ymm-pagination-btn" onclick="goToPage(${currentPage + 1})"><i class="fa-solid fa-chevron-right"></i></div>`;
+    }
+    
+    paginationHTML += '</div>';
+    paginationContainer.innerHTML = paginationHTML;
+}
+
+// Navigate to specific page
+function goToPage(pageNumber) {
+    currentPage = pageNumber;
+    displayResults();
+    // Scroll to top of results
+    document.getElementById('search-results')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Display results with pagination
 function displayResults() {
     const resultsContainer = document.getElementById('parts-results');
     const summaryContainer = document.getElementById('results-summary');
@@ -269,35 +413,68 @@ function displayResults() {
 
     if (searchResultsDiv) {
         searchResultsDiv.classList.remove('hidden');
+        
+        // Fetch categories for filters after DOM is rendered
+        setTimeout(() => {
+            if (typeof window.fetchCategories === 'function') {
+                console.log('Fetching categories for filters...');
+                window.fetchCategories();
+            } else {
+                console.warn('fetchCategories function not available');
+            }
+        }, 100);
     }
 
+    const totalPages = Math.ceil(filteredParts.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentPageParts = filteredParts.slice(startIndex, endIndex);
+
     summaryContainer.innerHTML = `
-        
-        <div>Showing ${filteredParts.length} of ${allParts.length} parts</div>
-        <div>
-            <div class="button-clear-search" onclick="clearSearchResults()">Clear Results</div>
+        <div class="result-count">
+            <div class="flex-btn" onclick="clearSearchResults()">
+                <i class="fa-solid fa-xmark"></i>
+            </div>
+            <div class="part-count">
+                <strong>${startIndex + 1}-${Math.min(endIndex, filteredParts.length)}</strong> of <strong>${filteredParts.length}</strong> parts
+            </div>
         </div>
         
+        <div id="pagination-controls"></div>
     `;
 
     if (filteredParts.length === 0) {
-        resultsContainer.innerHTML = '<p>No parts found matching your filters.</p>';
+        resultsContainer.innerHTML = '<p>No parts found matching your selection.</p>';
         return;
     }
 
-    resultsContainer.innerHTML = filteredParts.map(part => {
+    resultsContainer.innerHTML = currentPageParts.map(part => {
         const shopifyItem = part.shopifyProduct;
         
         const piesItem = part.piesItem;
         const fitments = part.fitments;
         
         const primaryImage = piesItem.digitalAssets?.find(asset => asset.assetTypeCode === 'P04');
-        const description = piesItem.descriptions?.find(desc => desc.descriptionTypeCode === 'SHO')?.value || piesItem.descriptions?.[0]?.value || 'N/A';
         
-        const mfrLabel = fitments[0].acesApp.mfrLabel;
-        const position = fitments[0].acesApp.attributes[0].attributeValueName;
-        const application = null;
-        const notes = fitments[0].acesApp.notes[0].value;
+        const mfrLabel = fitments[0]?.acesApp?.mfrLabel || 'N/A';
+        const position = fitments[0]?.acesApp?.attributes?.[0]?.attributeValueName || 'N/A';
+        
+        // Collect all attributeValueName from all fitments
+        const allAttributes = [];
+        if (fitments && fitments.length > 0) {
+            fitments.forEach(fitment => {
+                if (fitment.acesApp?.attributes) {
+                    fitment.acesApp.attributes.forEach(attr => {
+                        if (attr.attributeValueName && !allAttributes.includes(attr.attributeValueName)) {
+                            allAttributes.push(attr.attributeValueName);
+                        }
+                    });
+                }
+            });
+        }
+        const application = allAttributes.length > 0 ? allAttributes.join(', ') : 'N/A';
+        
+        const notes = fitments[0]?.acesApp?.notes?.[0]?.value || 'N/A';
 
         // Generate brand logo
         let brandLogo = '';
@@ -352,7 +529,7 @@ function displayResults() {
                                 <div>
                                     <strong>Application:</strong>
                                     <span class="text-limit" id="app-${piesItem.partNumber}">
-                                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut neque libero, sagittis et sodales quis, dignissim eget nunc. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Quisque nec placerat enim, eget lacinia justo. Praesent non nisi cursus, vestibulum urna sed, suscipit velit. Nulla rutrum mollis tellus, sed placerat lacus. Suspendisse elementum imperdiet leo eget tincidunt. Nullam et massa lorem.
+                                        ${application}
                                     </span>
                                     <span class="read-more-btn" onclick="toggleText('app-${piesItem.partNumber}', this)" style="display: none;">
                                         Read more
@@ -362,10 +539,10 @@ function displayResults() {
                             <div class="part-details-column">
                                 <div>
                                     <strong>Notes:</strong>
-                                    <span class="text-limit" id="app-${piesItem.partNumber}">
+                                    <span class="text-limit" id="notes-${piesItem.partNumber}">
                                         ${notes}
                                     </span>
-                                    <span class="read-more-btn" onclick="toggleText('app-${piesItem.partNumber}', this)" style="display: none;">
+                                    <span class="read-more-btn" onclick="toggleText('notes-${piesItem.partNumber}', this)" style="display: none;">
                                         Read more
                                     </span>
                                 </div>
@@ -375,7 +552,7 @@ function displayResults() {
                     
                     <div class="part-price-column">
                         <div class="part-price-value">$${shopifyItem.productPrice}</div>
-                        <div class="button-add-to-cart" onclick="addToCart(${shopifyItem.variantId}, 1, this)">Add to Cart</div>
+                        <div class="primary-btn" onclick="addToCart(${shopifyItem.variantId}, 1, this)">Add to Cart</div>
                     </div>
 
                 </div>
@@ -383,7 +560,11 @@ function displayResults() {
         `;
     }).join('');
 
-    setTimeout(checkTextHeight, 100);
+    // Add pagination controls after DOM is updated
+    setTimeout(() => {
+        renderPagination(totalPages);
+        checkTextHeight();
+    }, 0);
 }
 
 // Function to refresh cart sections (drawer, notification, etc.)
@@ -464,7 +645,6 @@ async function addToCart(variantId, quantity = 1, buttonElement) {
         }
 
         const result = await response.json();
-        console.log('Added to cart successfully:', result);
 
         // Dispatch the correct CartAddEvent that the theme expects
         try {
@@ -628,12 +808,6 @@ async function initializePage() {
     // Only perform search if we have vehicle data
     if (vehicleData) {
         await performSearch(vehicleData);
-    } else {
-        // Hide loading message if no search data available
-        const loadingElement = document.getElementById('loading-message');
-        if (loadingElement) {
-            loadingElement.style.display = 'none';
-        }
     }
 }
 
@@ -642,40 +816,18 @@ async function performSearch(vehicleData) {
     displayVehicleInfo(vehicleData);
 
     try {
-        const result = await fetchParts(vehicleData);
+        // fetchParts now displays first page immediately and continues in background
+        await fetchParts(vehicleData);
+        
+        // Note: displayResults() is called inside fetchParts() for first page
+        // and updated as more pages load
 
-        if (result.parts && result.parts.length > 0) {
-            allParts = result.parts;
-            filteredParts = [...allParts];
-            // buildFilters(allParts); // Removed - categories now loaded from database
-            displayResults();
-        } else {
-            const searchResultsDiv = document.getElementById('search-results');
-            if (searchResultsDiv) {
-                searchResultsDiv.classList.remove('hidden');
-            }
-
-            const summaryContainer = document.getElementById('results-summary');
-            if (summaryContainer) {
-                summaryContainer.innerHTML = `
-                    <div>No parts found for this vehicle</div>
-                    <div>
-                        <div class="button-clear-search" onclick="clearSearchResults()">Clear Results</div>
-                    </div>
-                `;
-            }
-        }
     } catch (error) {
         const errorElement = document.getElementById('error-message');
         if (errorElement) {
             errorElement.innerHTML = `Error loading parts: ${error.message}`;
             errorElement.style.display = 'block';
         }
-    }
-
-    const loadingElement = document.getElementById('loading-message');
-    if (loadingElement) {
-        loadingElement.style.display = 'none';
     }
 }
 
@@ -693,23 +845,31 @@ function toggleText(elementId, button) {
 
 // Check if text needs "Read more" button
 function checkTextHeight() {
-    document.querySelectorAll('.text-limit').forEach(element => {
+    document.querySelectorAll('.text-limit:not(.checked)').forEach(element => {
         const button = element.nextElementSibling;
         if (element.scrollHeight > element.clientHeight) {
             button.style.display = 'inline-block';
         }
+        // Mark as checked to avoid re-checking
+        element.classList.add('checked');
     });
+}
+
+// Back to top button function
+function backToTop() {
+    console.log("backToTop function activated")
+    const searchResults = document.getElementById('search-results');
+    if (searchResults) {
+        searchResults.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    }
 }
 
 // Listen for search events from the YMM widget
 window.addEventListener('ymmSearchTriggered', async function (event) {
     console.log('Search triggered:', event.detail);
-
-    // Show loading state
-    const loadingElement = document.getElementById('loading-message');
-    if (loadingElement) {
-        loadingElement.style.display = 'block';
-    }
 
     // Clear previous results
     const resultsContainer = document.getElementById('parts-results');
@@ -726,3 +886,8 @@ document.addEventListener('DOMContentLoaded', initializePage);
 
 // Make functions globally available
 window.clearAllFilters = clearAllFilters;
+window.goToPage = goToPage;
+window.toggleText = toggleText;
+window.clearSearchResults = clearSearchResults;
+window.addToCart = addToCart;
+window.backToTop = backToTop;

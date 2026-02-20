@@ -7,11 +7,15 @@ let activeFilters = {
 // Toggle the filters on and off
 function toggleFilters() {
     const filterDiv = document.getElementById('filter-objects');
+    const toggleButton = event.currentTarget; // Get the button that was clicked
+    const icon = toggleButton.querySelector('i');
     
     if (filterDiv.style.display === 'none') {
         filterDiv.style.display = 'block';
+        icon.className = 'fa-solid fa-eye-slash'; // Show eye-slash when filters are visible
     } else {
         filterDiv.style.display = 'none';
+        icon.className = 'fa-solid fa-eye'; // Show eye when filters are hidden
     }
 }
 
@@ -19,17 +23,22 @@ function toggleFilters() {
 async function fetchCategories() {
     try {
         const shop = window.Shopify?.shop || '';
+        
         const response = await fetch(`/apps/part-search/api/categories/public?shop=${encodeURIComponent(shop)}`);
+        
         const data = await response.json();
-        buildFiltersFromDatabase(data.categories);
+        
+        if (data.categories && data.categories.length > 0) {
+            buildFiltersFromDatabase(data.categories);
+        } else {
+            console.warn('No categories found in response');
+        }
     } catch (error) {
         console.error('Error fetching categories:', error);
     }
 }
 
 async function searchBasedOnFilters() {
-    console.log("Filters search button clicked");
-
     // Get the selected vehicle from sessionStorage
     const vehicleData = JSON.parse(sessionStorage.getItem('ymmSearchData'));
     if (!vehicleData || !vehicleData.baseVehicleId) {
@@ -50,49 +59,60 @@ async function searchBasedOnFilters() {
         alert('Please select at least one part type to search');
         return;
     }
-
-    console.log('Searching for part types:', selectedPartTypeIds);
-    console.log('For vehicle:', vehicleData.baseVehicleId);
     
-    const apiData = {
-        "getAutoCareSearchResults": {
-            "partTypeIds": selectedPartTypeIds, // Array of selected IDs
-            "baseVehicleId": parseInt(vehicleData.baseVehicleId),
-            "baseVehicleRegionId": parseInt(vehicleData.regionId),
-            "includeParts": true,
-            "includePartFitments": true,
-            "perPage": 100,
-            "page": 1
-        }
-    };
+    let allApiParts = [];
+    let currentPage = 1;
+    const perPage = 100;
+    let hasMorePages = true;
 
     try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'X-Api-Key': API_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(apiData)
-        });
+        // Fetch all pages
+        while (hasMorePages) {
+            const apiData = {
+                "getAutoCareSearchResults": {
+                    "partTypeIds": selectedPartTypeIds,
+                    "baseVehicleId": parseInt(vehicleData.baseVehicleId),
+                    "baseVehicleRegionId": parseInt(vehicleData.regionId),
+                    "includeParts": true,
+                    "includePartFitments": true,
+                    "perPage": perPage,
+                    "page": currentPage
+                }
+            };
 
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.status}`);
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'X-Api-Key': API_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(apiData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.parts && result.parts.length > 0) {
+                allApiParts = allApiParts.concat(result.parts);
+                
+                if (result.parts.length < perPage) {
+                    hasMorePages = false;
+                } else {
+                    currentPage++;
+                }
+            } else {
+                hasMorePages = false;
+            }
         }
-
-        const result = await response.json();
-        
-        // Just log the results
-        console.log('=== SEARCH RESULTS ===');
-        console.log('Total parts found:', result.parts?.length || 0);
-        console.log('Parts data:', result.parts);
-        console.log('Full response:', result);
 
         // Fetch Shopify products with criterion data
         const shopifyProducts = await fetchShopifyProducts();
 
         // Match OptiCat parts with Shopify products
-        const matchedParts = result.parts.map(part => {
+        const matchedParts = allApiParts.map(part => {
             const apiBrandCode = part.piesItem.brandCode;
             const apiPartNumber = part.piesItem.partNumber;
             
@@ -112,8 +132,6 @@ async function searchBasedOnFilters() {
             return null;
         }).filter(part => part !== null);
 
-        console.log('Matched parts with Shopify products:', matchedParts.length);
-
         // Update global arrays (these are used by displayResults)
         allParts = matchedParts;
         filteredParts = [...matchedParts];
@@ -129,8 +147,14 @@ async function searchBasedOnFilters() {
 
 // Build filters from database categories
 function buildFiltersFromDatabase(categoriesData) {
+    console.log('buildFiltersFromDatabase called with:', categoriesData);
+    
     const container = document.getElementById('category-filters');
-    if (!container) return;
+    
+    if (!container) {
+        console.error('category-filters container not found!');
+        return;
+    }
     
     container.innerHTML = '';
     
@@ -167,15 +191,17 @@ function buildFiltersFromDatabase(categoriesData) {
                 checkbox.type = 'checkbox';
                 checkbox.value = pt.name;
                 checkbox.dataset.terminologyId = pt.terminologyId; // Store the PartTerminologyID
-                checkbox.addEventListener('change', (e) => {
-                    console.log('Part Type Selected:', pt.name, 'PartTerminologyID:', pt.terminologyId);
-                });
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'part-type-name';
+                nameSpan.textContent = pt.name;
                 
                 label.appendChild(checkbox);
-                label.appendChild(document.createTextNode(pt.name));
+                label.appendChild(nameSpan);
+                
                 partTypesDiv.appendChild(label);
             });
-            
+
             // Toggle subcategory
             subHeader.addEventListener('click', () => {
                 const icon = subHeader.querySelector('.toggle-icon');
@@ -211,8 +237,15 @@ function buildFiltersFromDatabase(categoriesData) {
     });
     
     // Hide subcategory and parttype containers since we're building hierarchically
-    document.getElementById('subcategory-filters').style.display = 'none';
-    document.getElementById('parttype-filters').style.display = 'none';
+    const subcategoryContainer = document.getElementById('subcategory-filters');
+    const parttypeContainer = document.getElementById('parttype-filters');
+    
+    if (subcategoryContainer) {
+        subcategoryContainer.style.display = 'none';
+    }
+    if (parttypeContainer) {
+        parttypeContainer.style.display = 'none';
+    }
 }
 
 // Build filter options from parts data

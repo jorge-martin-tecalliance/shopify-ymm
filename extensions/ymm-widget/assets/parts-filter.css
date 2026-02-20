@@ -2,7 +2,7 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
-    width: 250px;
+    width: 25%;
     background: #ffffff;
     padding: 15px;
     border: 1px solid #eeeeee;
@@ -22,67 +22,8 @@
     font-weight: 900;
 }
 
-.button-filter-collapse {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 40px;
-    background-color: #1c1a33;
-    color: #ffffff;
-    border-radius: 3px;
-    padding: 5px 20px;
-    margin: 0px;
-    font-family: "Inter", sans-serif;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.button-filter-collapse:hover {
-    background-color: #2d2a54;
-    text-decoration: none;
-    color: #ffffff;
-    box-shadow: none !important;
-    text-decoration: none !important;
-}
-
 .filter-group {
     margin-bottom: 20px;
-}
-
-.filter-group-header {
-    margin: 0 0 10px 0;
-    font-size: 18px;
-    color: #333;
-}
-
-.filter-checkbox {
-    display: block;
-    margin-bottom: 8px;
-    cursor: pointer;
-}
-
-.filter-checkbox input {
-    margin-right: 8px;
-}
-
-.button-clear-filters {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 40px;
-    background-color: #1c1a33;
-    color: #ffffff;
-    border-radius: 3px;
-    padding: 5px 20px;
-    margin: 0px;
-    font-family: "Inter", sans-serif;
-    font-size: 14px;
-    font-weight: 500;
-    width: 100%;
-    min-width: 100%;
-    max-width: 100%;
-    cursor: pointer;
 }
 
 .button-clear-filters:hover {
@@ -126,13 +67,18 @@
 }
 
 .filter-checkbox {
-    display: block;
+    display: flex;
+    align-items: start;
     padding: 5px 0;
+}
+
+.filter-checkbox input {
+    margin: 5px 10px 0px 0px;
 }
 
 .filter-buttons-wrapper {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     gap: 10px;
 }
 

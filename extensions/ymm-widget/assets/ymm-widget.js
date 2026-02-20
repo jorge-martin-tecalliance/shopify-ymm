@@ -1,5 +1,3 @@
-console.log("YMM widget script loaded");
-
 document.getElementById('make-select').disabled = true;
 document.getElementById('model-select').disabled = true;
 document.getElementById('search-button').disabled = true;
@@ -48,8 +46,6 @@ function loadRegion() {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Success:', data);
-
         // Populate the region dropdown
         const regionFacets = data.regionFacets.counts;
         const regionSelectDropdown = document.getElementById('region-select');
@@ -98,8 +94,6 @@ function loadType() {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Success:', data);
-
         // Populate the vehicle type dropdown
         const vehicleTypeFacets = data.vehicleTypeFacets.counts;
         const vehicleTypeSelectDropdown = document.getElementById('type-select');
@@ -155,12 +149,12 @@ function loadType() {
 // Fetches and loads all the vehicle makes in OptiCat catalog based on the type selected
 function loadYear() {
     let regionIds = document.getElementById('region-select').value;
-    let vehicleTypeIds = document.getElementById('type-select').value;
+    let vehicleTypeIds = document.getElementById('type-select').value.split(',').map(id => parseInt(id.trim()));
 
     const data = {
         "getAutoCareVehicleResults": {
             "regionIds": [parseInt(regionIds)],
-            "vehicleTypeIds": [parseInt(vehicleTypeIds)],
+            "vehicleTypeIds": vehicleTypeIds,
             "yearFacets": {
                 "enabled": true,
                 "page": 1,
@@ -180,8 +174,6 @@ function loadYear() {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Success:', data);
-
         // Populate the year dropdown
         const yearFacets = data.yearFacets.counts
         const yearSelectDropdown = document.getElementById('year-select');
@@ -203,13 +195,13 @@ function loadYear() {
 // Fetches and loads all the vehicle makes in OptiCat catalog based on the year selected
 function loadMake() {
     let regionIds = document.getElementById('region-select').value;
-    let vehicleTypeIds = document.getElementById('type-select').value;
+    let vehicleTypeIds = document.getElementById('type-select').value.split(',').map(id => parseInt(id.trim()));
     let year = document.getElementById('year-select').value;
 
     const data = {
         "getAutoCareVehicleResults": {
             "regionIds": [parseInt(regionIds)],
-            "vehicleTypeIds": [parseInt(vehicleTypeIds)],
+            "vehicleTypeIds": vehicleTypeIds,
             "years": [year],
             "makeFacets": {
                 "enabled": true,
@@ -230,8 +222,6 @@ function loadMake() {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Makes under the selected year:', data);
-
         const makeSelectDropdown = document.getElementById('make-select');
 
         // Clear the make dropdown
@@ -261,8 +251,6 @@ function loadModel() {
     let year = document.getElementById('year-select').value;
     let makeId = document.getElementById('make-select').value;
 
-    console.log(vehicleTypeIds)
-
     const data = {
         "getAutoCareVehicleResults": {
             "regionIds": regionIds,
@@ -288,8 +276,6 @@ function loadModel() {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Models under the selected make:', data);
-
         const modelSelectDropdown = document.getElementById('model-select');
 
         // Clear the model dropdown
@@ -413,8 +399,6 @@ async function getBaseVehicleId() {
 }
 
 async function searchParts() {
-    console.log("Search button clicked");
-    
     const baseVehicleId = await getBaseVehicleId();
     if (!baseVehicleId) {
         console.error("Cannot search parts without BaseVehicleId");
@@ -447,16 +431,13 @@ async function searchParts() {
     // Check if results block exists on current page
     const resultsBlock = document.getElementById('search-results');
     if (resultsBlock) {
-        console.log("Found results block on same page, scrolling to it");
         resultsBlock.scrollIntoView({ behavior: 'smooth' });
     } else {
         // Results block not on this page - check if redirect URL is configured
         const resultsPageUrl = window.searchResultsPageUrl;
         if (resultsPageUrl) {
-            console.log("Redirecting to results page:", resultsPageUrl);
             window.location.href = resultsPageUrl;
         } else {
-            console.log("No results block found and no redirect URL configured");
             alert('Please add the "Parts Search Results" block to this page or configure a results page URL.');
         }
     }

@@ -23,6 +23,16 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.result-count {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.part-count {
+  width: 200px;
+}
+
 .hidden {
   display: none;
 }
@@ -44,7 +54,7 @@
 }
 
 .results-area {
-  flex: 1;
+  width: 75%;
 }
 
 .part-item-card {
@@ -121,60 +131,6 @@
   font-size: 24px;
 }
 
-.button-add-to-cart {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  background-color: #1c1a33;
-  color: #ffffff;
-  border-radius: 3px;
-  padding: 5px 20px;
-  margin: 0px;
-  font-family: "Inter", sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  width: 100%;
-  min-width: 100%;
-  max-width: 100%;
-  cursor: pointer;
-}
-
-.button-add-to-cart:hover {
-  background-color: #2d2a54;
-  text-decoration: none;
-  color: #ffffff;
-  box-shadow: none !important;
-  text-decoration: none !important;
-}
-
-.button-clear-search {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  background-color: #1c1a33;
-  color: #ffffff;
-  border-radius: 3px;
-  padding: 5px 20px;
-  margin: 0px;
-  font-family: "Inter", sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  width: 100%;
-  min-width: 100%;
-  max-width: 100%;
-  cursor: pointer;
-}
-
-.button-clear-search:hover {
-  background-color: #2d2a54;
-  text-decoration: none;
-  color: #ffffff;
-  box-shadow: none !important;
-  text-decoration: none !important;
-}
-
 .fitments {
   padding-top: 15px;
   border-top: 1px solid #eee;
@@ -188,13 +144,6 @@
 .fitments li {
   margin-bottom: 3px;
   font-size: 14px;
-  color: #666;
-}
-
-#loading-message {
-  text-align: center;
-  padding: 40px;
-  font-size: 16px;
   color: #666;
 }
 
@@ -234,7 +183,7 @@
 
 /* Tablet styles (769px to 1024px) */
 @media (min-width: 769px) and (max-width: 1024px) {
-  
+
   .part-content-wrapper {
     justify-content: space-between;
   }
@@ -260,6 +209,100 @@
   .part-price-column {
     width: 25%;
     justify-content: flex-end;
+  }
+
+}
+
+/* YMM Pagination Styles */
+.ymm-pagination {
+  display: flex;
+  justify-content: end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ymm-pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  color: #333333;
+  cursor: pointer;
+  border-radius: 100%;
+  font-size: 14px;
+  transition: all 0.2s;
+  width: 30px;
+  height: 30px;
+}
+
+.ymm-pagination-btn:hover:not(.ymm-active) {
+  background: #cccccc;
+  border-color: #cccccc;
+}
+
+.ymm-pagination-btn.ymm-active {
+  background: #1c1a33;
+  color: white;
+  cursor: default;
+}
+
+.ymm-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ymm-pagination-ellipsis {
+  padding: 8px 4px;
+  color: #999;
+}
+
+.back-to-top-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.back-to-top-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 100%;
+  border: 1px solid #cccccc;
+  background: #ffffff;
+  cursor: pointer;
+  margin: auto;
+}
+
+.back-to-top-btn:hover {
+  color: #ffffff;
+  background: #2d2a54;
+  border: 1px solid #2d2a54;
+}
+
+
+.back-to-top-text {
+  color: #999999;
+  margin: auto;
+}
+
+@media (max-width: 1364px) {
+
+  .row {
+    flex-direction: column;
+  }
+
+  .widget-header-wrapper {
+    flex-direction: column;
+  }
+
+  .ymm-search {
+    justify-content: center;
+  }
+
+  .location-type {
+    justify-content: center;
   }
 
 }
@@ -297,6 +340,14 @@
 
   .part-price-column {
     width: 100%;
+  }
+
+  .widget-header {
+    text-align: center;
+  }
+
+  .widget-subheader {
+    text-align: center;
   }
 
 }

@@ -1,4 +1,4 @@
-<div id="ymm-widget">
+<div id="ymm-widget" style="background-color: {{ block.settings.widget_background_color }}">
   
   <div class="widget-header-wrapper">
     <div class="widget-header">Let us help you find what you need!</div>
@@ -27,13 +27,9 @@
         </select>
       </div>
 
-      <div class="ymm-box">
-        <button type="button" class="ymm-search-btn" id="search-button" onclick="searchParts()">Search</button>
-      </div>
+      <button type="button" class="primary-btn" id="search-button" onclick="searchParts()">Search</button>
 
     </div>
-
-    <div class="v-line"></div>
 
     <div class="location-type">
 
@@ -60,7 +56,7 @@
 <script>
   window.OPTICAT_CONFIG = {
     apiUrl: 'https://webservice.opticatonline.com/autocare/v1/services/Catalog.jsonEndpoint',
-    apiKey: '2BeBXg6LiFTJMC2iqbGzK1Pmiw9WWsNB9Aczex98y4W4qNzZadNm'
+    apiKey: '2BeBXg6R2PCDLJMdvWKAncWy3en9RrkP3aFvxFUp18iUE8b7x8aR'
   };
   window.searchResultsPageUrl = {{ block.settings.results_page_url | json }};
 </script>
@@ -78,6 +74,13 @@
       "label": "Search Results redirect URL",
       "info": "URL of the page containing the search results block (e.g., /search). Leave empty if results block is on same page.",
       "default": "/search"
+    },
+    {
+      "type": "color",
+      "id": "widget_background_color",
+      "label": "Background Color",
+      "info": "Sets the color of the year, make, and model widget",
+      "default": "#eeeeee"
     }
   ]
 }
